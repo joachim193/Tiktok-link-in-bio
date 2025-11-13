@@ -1,0 +1,34 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Admin — Links</title>
+  <style>body{font-family:system-ui;padding:20px;max-width:900px;margin:auto} input,textarea{width:100%;padding:8px;margin:6px 0} .card{padding:12px;border:1px solid #eee;border-radius:8px;margin-bottom:12px}</style>
+</head>
+<body>
+  <h2>Admin — Links</h2>
+  <form method="POST" action="/admin/add" class="card">
+    <label>Title</label>
+    <input name="title" required/>
+    <label>Target URL (affiliate / product / checkout)</label>
+    <input name="url" required placeholder="https://"/>
+    <label>Short description (optional)</label>
+    <textarea name="description"></textarea>
+    <button type="submit">Add link</button>
+  </form>
+
+  <h3>Your links</h3>
+  <% links.forEach(function(l){ %>
+    <div class="card">
+      <div><strong><%= l.title %></strong> — <a href="/r/<%= l.id %>" target="_blank">/r/<%= l.id %></a></div>
+      <div><small><%= l.description %></small></div>
+      <form method="POST" action="/admin/delete/<%= l.id %>" style="display:inline">
+        <button type="submit">Delete</button>
+      </form>
+      <a href="/admin/analytics/<%= l.id %>">Analytics</a>
+    </div>
+  <% }); %>
+
+  <p>Open your public page at <a href="<%= baseUrl %>"><%= baseUrl %></a></p>
+</body>
+</html>
