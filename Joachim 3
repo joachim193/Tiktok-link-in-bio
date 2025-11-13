@@ -1,0 +1,33 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Link — My TikTok</title>
+  <style>
+    body{font-family:system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial;display:flex;align-items:center;justify-content:center;flex-direction:column;padding:20px}
+    .card{width:100%;max-width:420px;margin-top:20px}
+    a.btn{display:block;padding:14px;border-radius:10px;text-decoration:none;margin:8px 0;background:#111;color:#fff;text-align:center;font-weight:600}
+    .desc{color:#555;margin-top:6px;font-size:0.9rem}
+    header{margin-top:40px;text-align:center}
+  </style>
+</head>
+<body>
+  <header>
+    <img src="/avatar.png" alt="avatar" width="96" style="border-radius:50%"/>
+    <h1>@yourtiktokname</h1>
+    <p class="desc">Welcome — tap a link below 👇</p>
+  </header>
+
+  <div class="card">
+    <% if(links.length===0){ %>
+      <p>No links yet. Add them via /admin</p>
+    <% } %>
+    <% links.forEach(function(link){ %>
+      <a class="btn" href="/r/<%= link.id %>"><%= link.title %></a>
+      <% if(link.description){ %><div class="desc"><%= link.description %></div><% } %>
+    <% }); %>
+  </div>
+  <footer style="margin-top:24px;color:#999;font-size:0.85rem">Built with 🔥 — <a href="<%= baseUrl %>/admin" style="color:inherit">Admin</a></footer>
+</body>
+</html>
