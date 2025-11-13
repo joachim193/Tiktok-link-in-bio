@@ -1,0 +1,102 @@
+// server.js
+const express = require('express');
+const bodyParser = require('body-parser');
+const sqlite3 = require('sqlite3').verbose();
+const path = require('path');
+const shortid = require('shortid');
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+const BASE_URL = process.env.BASE_URL || `http://localhost:${PORT}`;
+
+// Views & static
+app.set('view engine', 'ejs');
+app.set('views', path.join(__dirname, 'views'));
+app.use(express.static(path.join(__dirname, 'public')));
+app.use(bodyParser.urlencoded({ extended: true }));
+
+// DB init
+const db = new sqlite3.Database('./links.db');
+db.serialize(() => {
+  db.run(`CREATE TABLE IF NOT EXISTS links (
+    id TEXT PRIMARY KEY,
+    title TEXT,
+    url TEXT,
+    description TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+  db.run(`CREATE TABLE IF NOT EXISTS clicks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    link_id TEXT,
+    referrer TEXT,
+    user_agent TEXT,
+    ip TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )`);
+});
+
+// Public landing page (link-in-bio)
+app.get('/', (req, res) => {
+  db.all(`SELECT id, title, description FROM links ORDER BY rowid DESC`, [], (err, rows) => {
+    if(err) return res.status(500).send('DB error');
+    res.render('landing', { links: rows, baseUrl: BASE_URL });
+  });
+});
+
+// Redirect endpoint (tracks click then redirects)
+app.get('/r/:id', (req, res) => {
+  const id = req.params.id;
+  db.get(`SELECT url FROM links WHERE id = ?`, [id], (err, row) => {
+    if(err || !row) return res.status(404).send('Link not found');
+    // Track click
+    const stmt = db.prepare(`INSERT INTO clicks (link_id, referrer, user_agent, ip) VALUES (?, ?, ?, ?)`);
+    const ref = req.get('Referrer') || req.get('Referer') || '';
+    stmt.run(id, ref, req.get('User-Agent'), req.ip || req.connection.remoteAddress, () => stmt.finalize());
+    // Redirect
+    res.redirect(row.url);
+  });
+});
+
+// Admin area (simple, not protected; for production protect with auth)
+app.get('/admin', (req, res) => {
+  db.all(`SELECT * FROM links ORDER BY rowid DESC`, [], (err, rows) => {
+    if(err) return res.status(500).send('DB error');
+    res.render('admin', { links: rows, baseUrl: BASE_URL });
+  });
+});
+
+app.post('/admin/add', (req, res) => {
+  const { title, url, description } = req.body;
+  const id = shortid.generate();
+  db.run(`INSERT INTO links (id, title, url, description) VALUES (?, ?, ?, ?)`, [id, title, url, description], err => {
+    if(err) return res.status(500).send('DB error');
+    res.redirect('/admin');
+  });
+});
+
+app.post('/admin/delete/:id', (req, res) => {
+  const id = req.params.id;
+  db.run(`DELETE FROM links WHERE id = ?`, [id], err => {
+    if(err) return res.status(500).send('DB error');
+    db.run(`DELETE FROM clicks WHERE link_id = ?`, [id], () => res.redirect('/admin'));
+  });
+});
+
+// Simple analytics for a link
+app.get('/admin/analytics/:id', (req, res) => {
+  const id = req.params.id;
+  db.get(`SELECT COUNT(*) as total FROM clicks WHERE link_id = ?`, [id], (err, row) => {
+    if(err) return res.status(500).send('DB error');
+    db.all(`SELECT created_at, referrer, ip, user_agent FROM clicks WHERE link_id = ? ORDER BY created_at DESC LIMIT 200`, [id], (err2, rows) => {
+      if(err2) return res.status(500).send('DB error');
+      db.get(`SELECT title, url FROM links WHERE id = ?`, [id], (err3, link) => {
+        if(err3 || !link) return res.status(404).send('Link not found');
+        res.render('analytics', { link, total: row.total || 0, clicks: rows });
+      });
+    });
+  });
+});
+
+app.listen(PORT, () => {
+  console.log(`Server running on ${BASE_URL}`);
+});
